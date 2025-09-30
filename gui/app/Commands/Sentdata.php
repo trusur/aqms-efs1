@@ -26,11 +26,11 @@ class Sentdata extends BaseCommand
 
 	public function __construct()
 	{
-		$this->parameters =  new m_parameter();
-		$this->sensor_values =  new m_sensor_value();
-		$this->measurement_logs =  new m_measurement_log();
-		$this->configurations =  new m_configuration();
-		$this->measurements =  new m_measurement();
+		$this->parameters = new m_parameter();
+		$this->sensor_values = new m_sensor_value();
+		$this->measurement_logs = new m_measurement_log();
+		$this->configurations = new m_configuration();
+		$this->measurements = new m_measurement();
 		$this->lastPutData = "0000-00-00 00:00";
 	}
 	/**
@@ -82,11 +82,15 @@ class Sentdata extends BaseCommand
 				$measurement_ids = "";
 				$is_exist = false;
 				$arr["id_stasiun"] = @$this->configurations->where("name", "id_stasiun")->findAll()[0]->content;
+				$arr["sta_lat"] = "";
+				$arr["sta_lon"] = "";
 
 				$time_group = @$this->measurements->where(["is_sent_cloud" => 0])->orderBy("id")->findAll()[0]->time_group;
 				if ($time_group) {
 					$is_exist = true;
-					$arr["waktu"] = $time_group;
+					$dtLocal = new \DateTime($time_group, new \DateTimeZone('Asia/Jakarta'));
+					$dtLocal->setTimezone(new \DateTimeZone('UTC'));
+					$arr["waktu"] = $dtLocal->format('Y-m-d\TH:i:s.000\Z');
 					$measurements = @$this->measurements->where(["time_group" => $time_group, "is_sent_cloud" => 0])->orderBy("id")->findAll();
 					foreach ($measurements as $measurement) {
 						$parameter = @$this->parameters->where(["id" => $measurement->parameter_id])->findAll()[0];
@@ -106,41 +110,45 @@ class Sentdata extends BaseCommand
 				// }
 				$measurement_ids = substr($measurement_ids, 0, -1);
 				if ($is_exist) {
-					$trusur_api_username = @$this->configurations->where("name", "trusur_api_username")->findAll()[0]->content;
-					$trusur_api_password = @$this->configurations->where("name", "trusur_api_password")->findAll()[0]->content;
 					$trusur_api_key = @$this->configurations->where("name", "trusur_api_key")->findAll()[0]->content;
-					$data = json_encode($arr);
+					$data = json_encode([$arr], JSON_UNESCAPED_SLASHES);
+					// CLI::write(json_encode(json_decode($data, true), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), 'yellow');
 					$curl = curl_init();
 					curl_setopt_array($curl, array(
-						CURLOPT_URL => "https://" . $trusur_api_server . "/api/put_data.php",
+						CURLOPT_URL => "https://" . $trusur_api_server . "/api/aqms2/measurement1kafka/bulk",
 						CURLOPT_RETURNTRANSFER => true,
 						CURLOPT_ENCODING => "",
 						CURLOPT_MAXREDIRS => 10,
 						CURLOPT_TIMEOUT => 30,
 						CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-						CURLOPT_CUSTOMREQUEST => "PUT",
-						CURLOPT_USERPWD => $trusur_api_username . ":" . $trusur_api_password,
+						CURLOPT_POST => true,
+						// CURLOPT_CUSTOMREQUEST => "PUT",
 						CURLOPT_POSTFIELDS => $data,
 						CURLOPT_HTTPHEADER => array(
-							"Api-Key: " . $trusur_api_key,
+							"CLIENT-API-KEY: " . $trusur_api_key,
 							"cache-control: no-cache",
-							"content-type: application/json"
+							"content-type: application/json",
+							"accept: application/json"
 						),
 						CURLOPT_SSL_VERIFYPEER => 0, //skip SSL Verification | disable SSL verify peer
 					));
 
 					$response = curl_exec($curl);
+					// CLI::write("cURL Error: " . $response, 'red');
 					$err = curl_error($curl);
 
 					curl_close($curl);
 
 					if ($err) {
+						// CLI::write("cURL Error: " . $err, 'red');
 						echo "cURL Error #:" . $err;
 					} else {
+						// CLI::write("Response server: " . $response, 'cyan');
 						if (strpos(" " . $response, "success") > 0) {
 							$this->measurements->where(["time_group" => $time_group])->set(["is_sent_cloud" => 1, "sent_cloud_at" => date("Y-m-d H:i:s")])->update();
-							// $this->measurements->where("id IN (" . $measurement_ids . ")")->set(["is_sent_cloud" => 1, "sent_cloud_at" => date("Y-m-d H:i:s")])->update();
+							// CLI::write("Data berhasil dikirim untuk time_group={$time_group}", 'green');
 						} else {
+							CLI::write("Data gagal dikirim: " . $response, 'red');
 							echo $response;
 						}
 					}
