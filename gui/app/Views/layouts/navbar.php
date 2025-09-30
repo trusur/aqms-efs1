@@ -15,7 +15,7 @@
                 <li class="btn-dark rounded border border-light nav-item mr-2 <?= @strtolower($__routename) == 'configuration' ? 'active' : '' ?>" data-intro="<?= lang('Global.intro_configuration') ?>">
                     <a class="nav-link" href="<?= base_url('configurations') ?>"><?= lang('Global.Configuration') ?></a>
                 </li>
-                <li id="parameters_nav" class="btn-dark rounded border border-light nav-item mr-2 hide d-none <?= @strtolower($__routename) == 'parameter' ? 'active' : '' ?>" data-intro="<?= lang('Global.intro_parameter') ?>">
+                <li id="parameters_nav" class="btn-dark rounded border border-light nav-item mr-2<?= @strtolower($__routename) == 'parameter' ? 'active' : '' ?>" data-intro="<?= lang('Global.intro_parameter') ?>">
                     <a class="nav-link" href="<?= base_url('parameters') ?>">Parameter</a>
                 </li>
                 <li id="calibrations_nav" class="btn-dark rounded border border-light nav-item mr-2 hide d-none <?= @strtolower($__routename) == 'calibration' ? 'active' : '' ?>" data-intro="<?= lang('Global.intro_calibration') ?>">
